@@ -35,7 +35,7 @@ pub fn resolve_label_smart(
     log(format!("resolve_label_smart tab.position={} tab_cmds={:?}", tab.position, parser.tab_cmds));
 
     if let Some(bin) = parser.tab_cmds.get(&(tab.position as u32)) {
-        return bin.clone();
+        return format!("*{bin}");
     }
     if let Some(cwd) = parser.tab_dirs.get(&(tab.position as u32)) {
         return format_name("", cwd, seeker, permissions, home_dir);
