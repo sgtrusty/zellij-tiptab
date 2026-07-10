@@ -1,0 +1,13 @@
+[package]
+name = "zellij-tiptab"
+version = "0.0.1"
+authors = ["Santiago González"]
+edition = "2021"
+description = "A zellij plugin that helps name tabs"
+repository = "https://github.com/sgtrusty/zellij-tiptab"
+readme = "README.md"
+keywords = ["zellij", "plugin", "layout", "tab", "names"]
+categories = ["tabs"]
+
+[dependencies]
+zellij-tile = "0.44.0"
