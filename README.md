@@ -14,3 +14,7 @@ Source `lib/tiptab-hook.sh` in your shell rc. On every prompt and command launch
 4. **Terminal command** — fallback from `PaneInfo.terminal_command` for command panes (e.g. `htop`).
 
 Components are truncated at 12 chars; final labels at 60.
+
+## Background Plugin
+
+In order to listen to `TabUpdate` events and rename all opened tabs while the plugin is unfocused, it must be loaded on startup to be typed as a background plugin. Zellij's event broadcaster ([`targeted_plugin_ids`](https://github.com/zellij-org/zellij/blob/main/zellij-server/src/screen.rs#L4334-L4351)) only includes background plugins that are explicitly subscribed to the event type. As specified by the [plugin loading wiki](https://zellij.dev/documentation/plugin-loading.html#on-startup), it can be loaded into a KDL file. See `@dev-docker.template.kdl` for an example.

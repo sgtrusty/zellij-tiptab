@@ -74,7 +74,6 @@ pub fn organize(
 
         if tab.name.trim() != name.trim() {
             pending_renames.insert(tab.tab_id as u64, name);
-            set_timeout(0.5);
         }
     }
 }
