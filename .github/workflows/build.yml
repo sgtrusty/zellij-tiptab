@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    # branches: [main]
+    branches: ["**"]
 
 env:
   PLUGIN_NAME: zellij-tiptab
@@ -50,3 +51,4 @@ jobs:
           name: v${{ needs.check.outputs.version }}
           files: target/wasm32-wasip1/release/${{ env.PLUGIN_NAME }}.wasm
           generate_release_notes: true
+
