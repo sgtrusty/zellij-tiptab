@@ -20,7 +20,7 @@ jobs:
         id: version
         run: |
           msg="${{ github.event.head_commit.message }}"
-          ver=$(echo "$msg" | sed -n 's/^build(v\([0-9]*\.[0-9]*\.[0-9]*\)[^)]*):.\*/\1/p')
+          ver=$(echo "$msg" | sed -n 's/^build(v\([0-9]*\.[0-9]*\.[0-9]*\)[^)]*):.*/\1/p')
           echo "version=$ver" >> "$GITHUB_OUTPUT"
 
   release:
@@ -50,3 +50,4 @@ jobs:
           name: v${{ needs.check.outputs.version }}
           files: target/wasm32-wasip1/release/${{ env.PLUGIN_NAME }}.wasm
           generate_release_notes: true
+
