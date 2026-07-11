@@ -33,7 +33,7 @@ pub fn fmt_git(cwd: &Path, root: &Path) -> String {
 
     let last = relative
         .components()
-        .last()
+        .next_back()
         .and_then(|c| c.as_os_str().to_str())
         .unwrap_or("");
     let last = trunc(last, 12);

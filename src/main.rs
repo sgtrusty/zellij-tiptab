@@ -112,10 +112,8 @@ impl ZellijPlugin for State {
                 );
                 self.organize_and_flush();
             }
-            Event::CustomMessage(name, payload) => {
-                if name == "execute-renames" {
-                    self.execute_renames(&payload);
-                }
+            Event::CustomMessage(name, payload) if name == "execute-renames" => {
+                self.execute_renames(&payload);
             }
             _ => {}
         }
@@ -151,9 +149,9 @@ impl State {
         let Ok(pending) = serde_json::from_str::<BTreeMap<u64, String>>(payload) else {
             return;
         };
-        eprintln!("[plugin] execute-renames: {} tabs", pending.len());
+        validation::log(format!("[plugin] execute-renames: {} tabs", pending.len()));
         for (tab_id, new_name) in pending {
-            eprintln!("[plugin] renaming tab {tab_id} -> {new_name}");
+            validation::log(format!("[plugin] renaming tab {tab_id} -> {new_name}"));
             rename_tab_with_id(tab_id, &new_name);
         }
     }

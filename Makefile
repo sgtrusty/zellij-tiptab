@@ -3,44 +3,41 @@ PLUGIN_NAME=zellij-tiptab
 SOURCE_FILE=target/wasm32-wasip1/release/$(PLUGIN_NAME).wasm
 DEST_DIR=$(HOME)/.config/zellij/plugins
 DEST_FILE=$(DEST_DIR)/$(PLUGIN_NAME).wasm
-DOCKER_IMAGE=$(PLUGIN_NAME)-builder
-DOCKER_EXPORT_DIR=target/wasm32-wasip1/release
 
-.PHONY: help build docker-build clean install debug
+.PHONY: help build clean install uninstall
 
 # `make` with no target shows this help
 help:
 	@echo "Available targets:"
 	@echo "  make build         Build the plugin with cargo (wasm32-wasip1)"
-	@echo "  make docker-build  Build the plugin via Docker"
-	@echo "  make debug         Build via Docker and launch zellij with the dev layout"
 	@echo "  make clean         Remove build artifacts"
-	@echo "  make install       Install the built plugin to $(DEST_DIR)"
+	@echo "  make install       Install plugin and bash hook (interactive)"
+	@echo "  make uninstall     Uninstall plugin and bash hook"
 
 # Compile the Rust code for WASI in release mode (via cargo)
 build:
 	cargo build --release --target wasm32-wasip1
 
-# Build the plugin via Docker and extract the .wasm
-docker-build:
-	DOCKER_BUILDKIT=1 docker build --target export \
-		--output type=local,dest=$(DOCKER_EXPORT_DIR) \
-		-t $(DOCKER_IMAGE) .
-	@echo "Extracted plugin to $(DOCKER_EXPORT_DIR)/$(PLUGIN_NAME).wasm"
-
 # Clean the build artifacts
 clean:
 	cargo clean
 
-# Build via Docker and launch zellij with the dev layout (dev-docker.template.kdl)
-debug: docker-build
-	bash -c 'source lib/tiptab-hook.sh && zellij --layout dev-docker.template.kdl'
-
 # Install the plugin to the local zellij plugins dir
 install:
-	mkdir -p $(DEST_DIR)
-	cp $(SOURCE_FILE) $(DEST_FILE)
-	@echo "------------------------------------------------"
-	@echo "Successfully installed to: $(DEST_FILE)"
-	@echo "Zellij KDL path: file:$(DEST_FILE)"
-	@echo "------------------------------------------------"
+	@read -p "Plugin install path [$(DEST_FILE)]: " plugin_path && \
+	plugin_path="$${plugin_path:-$(DEST_FILE)}" && \
+	mkdir -p "$$(dirname "$$plugin_path")" && \
+	cp $(SOURCE_FILE) "$$plugin_path" && \
+	echo "Installed plugin to: $$plugin_path" && \
+	echo "Zellij KDL path: file:$$plugin_path"
+	@read -p "Bash hook install path [~/.bashrc.d/16-external]: " hook_path && \
+	hook_path="$${hook_path:-$$HOME/.bashrc.d/16-external}" && \
+	mkdir -p "$$(dirname "$$hook_path")" && \
+	cp lib/tiptab-hook.sh "$$hook_path" && \
+	echo "Installed bash hook to: $$hook_path"
+
+# Uninstall the plugin and bash hook
+uninstall:
+	rm -f $(DEST_FILE)
+	rm -f $$HOME/.bashrc.d/16-external
+	@echo "Uninstalled plugin and bash hook"

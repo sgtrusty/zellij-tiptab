@@ -41,7 +41,7 @@ impl BinParser {
     }
 
     pub fn populate_last_cmds(&mut self, panes: &PaneManifest) {
-        for (_pos, panes) in &panes.panes {
+        for panes in panes.panes.values() {
             for pane in panes {
                 if pane.is_plugin || pane.is_suppressed {
                     continue;
@@ -65,18 +65,6 @@ impl BinParser {
             None
         } else {
             Some(name)
-        }
-    }
-
-    pub fn strip_quotes(value: &str) -> &str {
-        let bytes = value.as_bytes();
-        if bytes.len() >= 2
-            && (bytes[0] == b'\'' || bytes[0] == b'"')
-            && bytes[bytes.len() - 1] == bytes[0]
-        {
-            &value[1..value.len() - 1]
-        } else {
-            value
         }
     }
 }

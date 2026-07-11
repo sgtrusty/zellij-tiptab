@@ -1,7 +1,14 @@
 # ==========================================
+# STAGE 0: Base
+# ==========================================
+FROM rust:latest AS base
+
+RUN rustup target add wasm32-wasip1
+
+# ==========================================
 # STAGE 1: Non-Root Builder
 # ==========================================
-FROM rust:latest AS builder
+FROM base AS builder
 
 # 1. Create the non-root user and group
 RUN groupadd -g 10001 appgroup && \
@@ -16,19 +23,30 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 USER appuser
 WORKDIR /app
 
-# 4. Add the WASI target (uses system rustup, writes to user space)
-RUN rustup target add wasm32-wasip1
-
-# 5. Copy the crate (now at the repo root)
+# 4. Copy the crate (now at the repo root)
 COPY --chown=appuser:appgroup Cargo.toml Cargo.lock ./
 COPY --chown=appuser:appgroup src ./src
 COPY --chown=appuser:appgroup .cargo ./.cargo
 
-# 6. Build for WASI in release mode
+# 5. Build for WASI in release mode
 RUN --mount=type=cache,target=/usr/local/cargo/registry,uid=10001,gid=10001 \
     --mount=type=cache,target=/app/target,uid=10001,gid=10001 \
     cargo build --release --target wasm32-wasip1 && \
     cp target/wasm32-wasip1/release/zellij-tiptab.wasm /app/zellij-tiptab.wasm
+
+# ==========================================
+# STAGE 3: Lint
+# ==========================================
+FROM base AS lint
+
+RUN rustup component add clippy
+
+WORKDIR /app
+COPY --from=builder /app/Cargo.toml /app/Cargo.lock ./
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/.cargo ./.cargo
+
+RUN cargo clippy --target wasm32-wasip1 -- -D warnings
 
 # ==========================================
 # STAGE 2: Non-Root Export

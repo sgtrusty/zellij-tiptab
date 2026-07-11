@@ -10,7 +10,20 @@
 # Source it from your shell rc, e.g.:
 #   source /path/to/tiptab-hook.sh
 
-_tiptab_last_ts=0
+_tiptab_token_file="${TMPDIR:-/tmp}/tiptab_token.$$"
+_tiptab_pending_pane_id=""
+_tiptab_pending_pwd=""
+_tiptab_pending_bin=""
+
+_tiptab_flush() {
+    local tab_pos
+    tab_pos=$(zellij action current-tab-info 2>/dev/null | sed -n 's/^position: //p')
+    if zellij action pipe --name tiptab -- "${tab_pos} ${_tiptab_pending_pwd} ${_tiptab_pending_bin:-}" 2>/dev/null; then
+        _tiptab_last_pane_id="$_tiptab_pending_pane_id"
+        _tiptab_last_pwd="$_tiptab_pending_pwd"
+        _tiptab_last_bin="$_tiptab_pending_bin"
+    fi
+}
 
 _tiptab_report() {
     # Only act inside a Zellij session
@@ -18,29 +31,28 @@ _tiptab_report() {
     local pwd="${PWD:-}"
     [ -n "$pwd" ] || return 0
 
-    # Calculate current time in milliseconds (or use floats with EPOCHREALTIME)
-    local now=$(date +%s%3N)
-    local delta=$((now - _tiptab_last_ts))
+    # Debounce: remember the latest intent, then schedule a send 500ms later.
+    # Instead of killing superseded timers (which makes the interactive shell
+    # print "Terminated" job notices), each timer carries a token. When it
+    # fires it only sends if it still holds the latest token — otherwise it
+    # exits silently. Rapid calls therefore collapse into one pipe carrying
+    # the final state, with no job-control noise.
+    _tiptab_pending_pane_id="${ZELLIJ_PANE_ID}"
+    _tiptab_pending_pwd="$pwd"
+    _tiptab_pending_bin="${1:-}"
 
-    # Debounce Logic:
-    # 1. Skip if data hasn't changed (original)
-    # 2. Skip if we sent an update less than 500ms ago
-    if [ "${_tiptab_last_pane_id:-}" = "${ZELLIJ_PANE_ID}" ] &&
-        [ "${_tiptab_last_pwd:-}" = "$pwd" ] &&
-        [ "${_tiptab_last_bin:-}" = "${1:-}" ] ||
-        [ $delta -lt 500 ]; then
-        return 0
-    fi
+    local token
+    token=$(cat "$_tiptab_token_file" 2>/dev/null)
+    token=$(( ${token:-0} + 1 ))
+    printf '%s' "$token" > "$_tiptab_token_file"
 
-    local tab_pos=$(zellij action current-tab-info 2>/dev/null | sed -n 's/^position: //p')
-
-    # Payload
-    _tiptab_last_ts=$now
-    if zellij action pipe --name tiptab -- "${tab_pos} ${pwd} ${1:-}" 2>/dev/null; then
-        _tiptab_last_pane_id="${ZELLIJ_PANE_ID}"
-        _tiptab_last_pwd="$pwd"
-        _tiptab_last_bin="${1:-}"
-    fi
+    (
+        local my_token="$token"
+        sleep 0.5
+        [ "$(cat "$_tiptab_token_file" 2>/dev/null)" = "$my_token" ] || exit 0
+        _tiptab_flush
+    ) &
+    disown 2>/dev/null || true
 }
 _tiptab_debug_trap() {
     # DEBUG trap: fires BEFORE each command. Gives us the binary that is about
@@ -85,7 +97,7 @@ if [ -n "${BASH_VERSION:-}" ]; then
     # *_tiptab_prompt_command*) ;;
     # *) export PROMPT_COMMAND="_tiptab_prompt_command;${PROMPT_COMMAND:-}" ;;
     # esac
-    export -f _tiptab_report _tiptab_prompt_command _tiptab_debug_trap
+    export -f _tiptab_report _tiptab_prompt_command _tiptab_debug_trap _tiptab_flush
     # Chain onto any pre-existing DEBUG trap instead of overwriting it —
     # sourcing this before or after tools like direnv/atuin/starship (which
     # also use the DEBUG trap) would otherwise silently break one or the

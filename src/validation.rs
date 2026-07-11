@@ -14,5 +14,5 @@ pub fn is_default_tab_name(name: &str) -> bool {
 }
 
 pub fn log(msg: impl Display) {
-    eprintln!("[plugin-layoutswitch] {}", msg);
+    eprintln!("[plugin-tiptab] {}", msg);
 }

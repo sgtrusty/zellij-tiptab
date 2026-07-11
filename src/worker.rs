@@ -2,6 +2,8 @@ use zellij_tile::prelude::*;
 use serde::{Serialize, Deserialize};
 use std::collections::BTreeMap;
 
+use crate::validation::log;
+
 pub const RENAME_WORKER: &str = "rename";
 
 #[derive(Default, Serialize, Deserialize)]
@@ -13,19 +15,19 @@ impl ZellijWorker<'_> for RenameWorker {
     fn on_message(&mut self, message: String, payload: String) {
         match message.as_str() {
             "queue-rename" => {
-                eprintln!("[worker] queue-rename payload={payload}");
+                log(format!("[worker] queue-rename payload={payload}"));
                 if let Ok((tab_id, new_name)) =
                     serde_json::from_str::<(u64, String)>(&payload)
                 {
                     self.pending.insert(tab_id, new_name);
-                    eprintln!("[worker] queued, {} pending", self.pending.len());
+                    log(format!("[worker] queued, {} pending", self.pending.len()));
                 } else {
-                    eprintln!("[worker] failed to parse payload");
+                    log("[worker] failed to parse payload");
                 }
             }
             "execute-renames" => {
                 let pending = std::mem::take(&mut self.pending);
-                eprintln!("[worker] execute-renames: {} tabs", pending.len());
+                log(format!("[worker] execute-renames: {} tabs", pending.len()));
                 let payload = serde_json::to_string(&pending).unwrap_or_default();
                 post_message_to_plugin(PluginMessage {
                     name: "execute-renames".to_string(),
@@ -34,7 +36,7 @@ impl ZellijWorker<'_> for RenameWorker {
                 });
             }
             _ => {
-                eprintln!("[worker] unknown message: {message}");
+                log(format!("[worker] unknown message: {message}"));
             }
         }
     }
