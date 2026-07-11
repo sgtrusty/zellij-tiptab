@@ -1,4 +1,5 @@
 use zellij_tile::prelude::*;
+use zellij_tile::shim::get_session_list;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -23,6 +24,7 @@ struct State {
     panes: PaneManifest,
     parser: BinParser,
     seeker: ParentSeeker,
+    session_name: Option<String>,
 }
 
 register_plugin!(State);
@@ -129,7 +131,20 @@ impl State {
             return false;
         };
 
-        let mut parts = payload.splitn(3, ' ');
+        // Payload is "<session>|<tab_pos> <pwd> <bin>". The session name lets us
+        // ignore pipes emitted by shells in a *different* Zellij session, which
+        // would otherwise rename this session's tabs with the wrong cwd/binary.
+        let (session, rest) = match payload.split_once('|') {
+            Some((s, r)) => (Some(s.to_string()), r),
+            None => (None, payload.as_str()),
+        };
+        if let (Some(own), Some(session)) = (self.current_session_name(), &session) {
+            if own != *session {
+                return false;
+            }
+        }
+
+        let mut parts = rest.splitn(3, ' ');
         let (Some(tab_pos_str), Some(pwd), Some(bin)) =
             (parts.next(), parts.next(), parts.next())
         else {
@@ -143,6 +158,20 @@ impl State {
         self.parser.ingest_pipe(tab_pos, pwd, bin);
         self.organize_and_flush();
         false
+    }
+
+    fn current_session_name(&mut self) -> Option<String> {
+        if self.session_name.is_none() {
+            if let Ok(snapshot) = get_session_list() {
+                for session in snapshot.live_sessions {
+                    if session.is_current_session {
+                        self.session_name = Some(session.name);
+                        break;
+                    }
+                }
+            }
+        }
+        self.session_name.clone()
     }
 
     fn execute_renames(&mut self, payload: &str) {

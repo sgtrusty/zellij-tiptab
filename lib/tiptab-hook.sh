@@ -18,7 +18,7 @@ _tiptab_pending_bin=""
 _tiptab_flush() {
     local tab_pos
     tab_pos=$(zellij action current-tab-info 2>/dev/null | sed -n 's/^position: //p')
-    if zellij action pipe --name tiptab -- "${tab_pos} ${_tiptab_pending_pwd} ${_tiptab_pending_bin:-}" 2>/dev/null; then
+    if zellij action pipe --name tiptab -- "${ZELLIJ_SESSION_NAME:-}|${tab_pos} ${_tiptab_pending_pwd} ${_tiptab_pending_bin:-}" 2>/dev/null; then
         _tiptab_last_pane_id="$_tiptab_pending_pane_id"
         _tiptab_last_pwd="$_tiptab_pending_pwd"
         _tiptab_last_bin="$_tiptab_pending_bin"
