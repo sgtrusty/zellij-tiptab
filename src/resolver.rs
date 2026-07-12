@@ -3,7 +3,7 @@ use std::path::Path;
 
 use zellij_tile::prelude::*;
 
-use crate::bin_parser::BinParser;
+use crate::tabs::TabState;
 use crate::formatter;
 use crate::parent_seek::ParentSeeker;
 use crate::validation::{self, log};
@@ -15,7 +15,7 @@ pub fn format_name(
     permissions: Option<PermissionStatus>,
     home_dir: Option<&str>,
 ) -> String {
-    if let Some(name) = BinParser::binary_name(terminal_command) {
+    if let Some(name) = TabState::binary_name(terminal_command) {
         return name;
     }
     if let Some(name) = seeker.git_name(cwd, permissions) {
@@ -26,7 +26,7 @@ pub fn format_name(
 
 pub fn resolve_label_smart(
     tab: &TabInfo,
-    parser: &BinParser,
+    parser: &TabState,
     seeker: &ParentSeeker,
     panes: &PaneManifest,
     permissions: Option<PermissionStatus>,
@@ -34,10 +34,10 @@ pub fn resolve_label_smart(
 ) -> String {
     log(format!("resolve_label_smart tab.position={} tab_cmds={:?}", tab.position, parser.tab_cmds));
 
-    if let Some(bin) = parser.tab_cmds.get(&(tab.position as u32)) {
+    if let Some(bin) = parser.tab_cmds.get(&(tab.tab_id as u64)) {
         return format!("*{bin}");
     }
-    if let Some(cwd) = parser.tab_dirs.get(&(tab.position as u32)) {
+    if let Some(cwd) = parser.tab_dirs.get(&(tab.tab_id as u64)) {
         return format_name("", cwd, seeker, permissions, home_dir);
     }
 
@@ -57,14 +57,17 @@ pub fn resolve_label_smart(
 pub fn organize(
     tabs: &[TabInfo],
     pending_renames: &mut BTreeMap<u64, String>,
-    parser: &BinParser,
+    parser: &TabState,
     seeker: &ParentSeeker,
     panes: &PaneManifest,
     permissions: Option<PermissionStatus>,
     home_dir: Option<&str>,
 ) {
     for tab in tabs {
-        if tab.position != 0 && !validation::is_default_tab_name(&tab.name) {
+        if tab.position == 0 {
+            continue;
+        }
+        if !validation::is_default_tab_name(&tab.name) {
             continue;
         }
 

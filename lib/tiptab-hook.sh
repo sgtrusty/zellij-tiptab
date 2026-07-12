@@ -16,9 +16,10 @@ _tiptab_pending_pwd=""
 _tiptab_pending_bin=""
 
 _tiptab_flush() {
-    local tab_pos
-    tab_pos=$(zellij action current-tab-info 2>/dev/null | sed -n 's/^position: //p')
-    if zellij action pipe --name tiptab -- "${ZELLIJ_SESSION_NAME:-}|${tab_pos} ${_tiptab_pending_pwd} ${_tiptab_pending_bin:-}" 2>/dev/null; then
+    if [ -z "$_tiptab_pending_pane_id" ]; then
+        return 0
+    fi
+    if zellij action pipe --name tiptab -- "${ZELLIJ_SESSION_NAME:-}|${_tiptab_pending_pane_id} ${_tiptab_pending_pwd} ${_tiptab_pending_bin:-}" 2>/dev/null; then
         _tiptab_last_pane_id="$_tiptab_pending_pane_id"
         _tiptab_last_pwd="$_tiptab_pending_pwd"
         _tiptab_last_bin="$_tiptab_pending_bin"
@@ -31,12 +32,6 @@ _tiptab_report() {
     local pwd="${PWD:-}"
     [ -n "$pwd" ] || return 0
 
-    # Debounce: remember the latest intent, then schedule a send 500ms later.
-    # Instead of killing superseded timers (which makes the interactive shell
-    # print "Terminated" job notices), each timer carries a token. When it
-    # fires it only sends if it still holds the latest token — otherwise it
-    # exits silently. Rapid calls therefore collapse into one pipe carrying
-    # the final state, with no job-control noise.
     _tiptab_pending_pane_id="${ZELLIJ_PANE_ID}"
     _tiptab_pending_pwd="$pwd"
     _tiptab_pending_bin="${1:-}"

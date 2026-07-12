@@ -4,13 +4,13 @@ use zellij_tile::shim::get_session_list;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use bin_parser::BinParser;
+use tabs::TabState;
 use parent_seek::ParentSeeker;
 
-mod bin_parser;
 mod formatter;
 mod parent_seek;
 mod resolver;
+mod tabs;
 mod validation;
 mod worker;
 
@@ -22,7 +22,7 @@ struct State {
     permissions: Option<PermissionStatus>,
     tabs: Vec<TabInfo>,
     panes: PaneManifest,
-    parser: BinParser,
+    parser: TabState,
     seeker: ParentSeeker,
     session_name: Option<String>,
 }
@@ -69,6 +69,10 @@ impl ZellijPlugin for State {
                     tabs.iter().map(|t| t.tab_id as u64).collect();
                 for created in new.difference(&old) {
                     validation::log(format!("tab created (tab_id={created})"));
+                }
+                for destroyed in old.difference(&new) {
+                    validation::log(format!("tab destroyed (tab_id={destroyed})"));
+                    self.parser.cleanup_tab(*destroyed);
                 }
                 self.tabs = tabs;
                 self.organize_and_flush();
@@ -131,9 +135,6 @@ impl State {
             return false;
         };
 
-        // Payload is "<session>|<tab_pos> <pwd> <bin>". The session name lets us
-        // ignore pipes emitted by shells in a *different* Zellij session, which
-        // would otherwise rename this session's tabs with the wrong cwd/binary.
         let (session, rest) = match payload.split_once('|') {
             Some((s, r)) => (Some(s.to_string()), r),
             None => (None, payload.as_str()),
@@ -145,19 +146,34 @@ impl State {
         }
 
         let mut parts = rest.splitn(3, ' ');
-        let (Some(tab_pos_str), Some(pwd), Some(bin)) =
+        let (Some(pane_id_str), Some(pwd), Some(bin)) =
             (parts.next(), parts.next(), parts.next())
         else {
             return false;
         };
 
-        let Ok(tab_pos) = tab_pos_str.parse::<u32>() else {
+        let Ok(pane_id) = pane_id_str.parse::<u32>() else {
             return false;
         };
 
-        self.parser.ingest_pipe(tab_pos, pwd, bin);
+        let Some(tab_id) = self.find_tab_id_for_pane(pane_id) else {
+            return false;
+        };
+
+        self.parser.ingest_pipe(tab_id, pwd, bin);
         self.organize_and_flush();
         false
+    }
+
+    fn find_tab_id_for_pane(&self, pane_id: u32) -> Option<u64> {
+        for (tab_pos, panes) in &self.panes.panes {
+            if panes.iter().any(|p| p.id == pane_id) {
+                return self.tabs.iter()
+                    .find(|t| t.position == *tab_pos)
+                    .map(|t| t.tab_id as u64);
+            }
+        }
+        None
     }
 
     fn current_session_name(&mut self) -> Option<String> {
