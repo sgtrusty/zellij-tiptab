@@ -4,13 +4,13 @@ use zellij_tile::shim::get_session_list;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use bin_parser::BinParser;
+use tabs::TabState;
 use parent_seek::ParentSeeker;
 
-mod bin_parser;
 mod formatter;
 mod parent_seek;
 mod resolver;
+mod tabs;
 mod validation;
 mod worker;
 
@@ -22,7 +22,7 @@ struct State {
     permissions: Option<PermissionStatus>,
     tabs: Vec<TabInfo>,
     panes: PaneManifest,
-    parser: BinParser,
+    parser: TabState,
     seeker: ParentSeeker,
     session_name: Option<String>,
 }
@@ -69,6 +69,10 @@ impl ZellijPlugin for State {
                     tabs.iter().map(|t| t.tab_id as u64).collect();
                 for created in new.difference(&old) {
                     validation::log(format!("tab created (tab_id={created})"));
+                }
+                for destroyed in old.difference(&new) {
+                    validation::log(format!("tab destroyed (tab_id={destroyed})"));
+                    self.parser.cleanup_tab(*destroyed);
                 }
                 self.tabs = tabs;
                 self.organize_and_flush();
@@ -155,7 +159,14 @@ impl State {
             return false;
         };
 
-        self.parser.ingest_pipe(tab_pos, pwd, bin);
+        let Some(tab_id) = self.tabs.iter()
+            .find(|t| t.position as u32 == tab_pos)
+            .map(|t| t.tab_id as u64)
+        else {
+            return false;
+        };
+
+        self.parser.ingest_pipe(tab_id, pwd, bin);
         self.organize_and_flush();
         false
     }
