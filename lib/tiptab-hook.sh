@@ -14,13 +14,12 @@ _tiptab_token_file="${TMPDIR:-/tmp}/tiptab_token.$$"
 _tiptab_pending_pane_id=""
 _tiptab_pending_pwd=""
 _tiptab_pending_bin=""
-_tiptab_pending_tab_pos=""
 
 _tiptab_flush() {
-    if [ -z "$_tiptab_pending_tab_pos" ]; then
+    if [ -z "$_tiptab_pending_pane_id" ]; then
         return 0
     fi
-    if zellij action pipe --name tiptab -- "${ZELLIJ_SESSION_NAME:-}|${_tiptab_pending_tab_pos} ${_tiptab_pending_pwd} ${_tiptab_pending_bin:-}" 2>/dev/null; then
+    if zellij action pipe --name tiptab -- "${ZELLIJ_SESSION_NAME:-}|${_tiptab_pending_pane_id} ${_tiptab_pending_pwd} ${_tiptab_pending_bin:-}" 2>/dev/null; then
         _tiptab_last_pane_id="$_tiptab_pending_pane_id"
         _tiptab_last_pwd="$_tiptab_pending_pwd"
         _tiptab_last_bin="$_tiptab_pending_bin"
@@ -33,14 +32,9 @@ _tiptab_report() {
     local pwd="${PWD:-}"
     [ -n "$pwd" ] || return 0
 
-    local tab_pos
-    tab_pos=$(zellij action current-tab-info 2>/dev/null | sed -n 's/^position: //p')
-    [ -n "$tab_pos" ] || return 0
-
     _tiptab_pending_pane_id="${ZELLIJ_PANE_ID}"
     _tiptab_pending_pwd="$pwd"
     _tiptab_pending_bin="${1:-}"
-    _tiptab_pending_tab_pos="$tab_pos"
 
     local token
     token=$(cat "$_tiptab_token_file" 2>/dev/null)
