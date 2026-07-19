@@ -57,7 +57,7 @@ pub fn resolve_label_smart(
 pub fn organize(
     tabs: &[TabInfo],
     pending_renames: &mut BTreeMap<u64, String>,
-    parser: &TabState,
+    parser: &mut TabState,
     seeker: &ParentSeeker,
     panes: &PaneManifest,
     permissions: Option<PermissionStatus>,
@@ -67,16 +67,24 @@ pub fn organize(
         if tab.position == 0 {
             continue;
         }
-        if !validation::is_default_tab_name(&tab.name) {
+
+        let tab_id = tab.tab_id as u64;
+        let label = resolve_label_smart(tab, parser, seeker, panes, permissions, home_dir);
+        let name = formatter::fmt_label(tab.position as u32, &label);
+
+        let managed = parser
+            .applied_labels
+            .get(&tab_id)
+            .is_some_and(|applied| applied.trim() == tab.name.trim());
+        let is_default = validation::is_default_tab_name(&tab.name);
+        if !managed && !is_default {
             continue;
         }
 
-        let label = resolve_label_smart(tab, parser, seeker, panes, permissions, home_dir);
-        let name = formatter::fmt_label(tab.position as u32, &label);
-        log(format!("names {}=={}", name, tab.name));
-
-        if tab.name.trim() != name.trim() {
-            pending_renames.insert(tab.tab_id as u64, name);
+        if parser.applied_labels.get(&tab_id).map(|a| a.trim()) != Some(name.trim()) {
+            log(format!("rename tab_id={tab_id} {} -> {}", tab.name, name));
+            pending_renames.insert(tab_id, name.clone());
+            parser.applied_labels.insert(tab_id, name);
         }
     }
 }
