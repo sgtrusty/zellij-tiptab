@@ -167,7 +167,10 @@ impl State {
 
     fn find_tab_id_for_pane(&self, pane_id: u32) -> Option<u64> {
         for (tab_pos, panes) in &self.panes.panes {
-            if panes.iter().any(|p| p.id == pane_id) {
+            if panes
+                .iter()
+                .any(|p| p.id == pane_id && !p.is_plugin && !p.is_suppressed)
+            {
                 return self.tabs.iter()
                     .find(|t| t.position == *tab_pos)
                     .map(|t| t.tab_id as u64);
@@ -207,7 +210,7 @@ impl State {
         resolver::organize(
             &self.tabs,
             &mut pending_renames,
-            &self.parser,
+            &mut self.parser,
             &self.seeker,
             &self.panes,
             self.permissions,

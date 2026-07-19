@@ -10,6 +10,7 @@ pub struct TabState {
     pub tab_cmds: BTreeMap<u64, String>,
     pub term_cmds: BTreeMap<u32, String>,
     pub tab_ongoing: BTreeSet<u64>,
+    pub applied_labels: BTreeMap<u64, String>,
 }
 
 impl Default for TabState {
@@ -25,6 +26,7 @@ impl TabState {
             tab_cmds: BTreeMap::new(),
             term_cmds: BTreeMap::new(),
             tab_ongoing: BTreeSet::new(),
+            applied_labels: BTreeMap::new(),
         }
     }
 
@@ -44,6 +46,7 @@ impl TabState {
         self.tab_dirs.remove(&tab_id);
         self.tab_cmds.remove(&tab_id);
         self.tab_ongoing.remove(&tab_id);
+        self.applied_labels.remove(&tab_id);
     }
 
     pub fn populate_last_cmds(&mut self, panes: &PaneManifest) {
